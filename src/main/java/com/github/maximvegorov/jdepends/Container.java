@@ -8,12 +8,38 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.*;
 import java.util.function.BinaryOperator;
 
+import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.*;
 
+/**
+ * Represents a dependency injection container for managing the lifecycle of services.
+ * The lifecycle management includes:
+ * - Resolutions of services by their identifiers.
+ * - Starting actions for initializing services.
+ * - Stop actions for cleaning up resources in reverse order of initialization.
+ * This class implements {@link AutoCloseable} to provide a structured way of handling resources.
+ * It guarantees that services are disposed properly when the container is no longer needed.
+ * Construction of this class requires at least one {@link Provider} that supplies the service definitions.
+ * Thread Safety:
+ * - Calls to public methods must be avoided after the container is closed to ensure safety.
+ * - Attempting to use services after closure results in {@link IllegalStateException}.
+ * Error Handling:
+ * - Detects cyclic dependencies between services and throws {@link CyclicDependencyException}.
+ * - Throws {@link FoundDuplicateException} for duplicate service registrations.
+ * - Throws {@link UnknownServiceIdException} when resolving a non-existent service.
+ * Usage Guidelines:
+ * - Always invoke {@link #close()} when the container is no longer needed to release resources.
+ * - Ensure that all provided service configurations are unique and free from cyclic dependencies.
+ * Construction Parameters:
+ * - A varargs parameter of {@link Provider}, representing the service providers.
+ * Exceptions:
+ * - {@link IllegalArgumentException} if no providers are supplied during instantiation.
+ */
 @Slf4j
 public final class Container implements AutoCloseable {
     private final Map<ServiceId, ServiceDef> registeredServices;
+    private final Map<Class<?>, List<ServiceId>> registeredTypes;
     private final Map<ServiceId, Object> resolvedServices;
     private final List<Runnable> stopActions;
     private boolean closed;
@@ -30,6 +56,9 @@ public final class Container implements AutoCloseable {
         this.registeredServices = Arrays.stream(providers)
                 .flatMap(provider -> provider.provides().stream())
                 .collect(toMap(ServiceDef::serviceId, identity(), rejectDuplicateMerger));
+        this.registeredTypes = this.registeredServices.keySet()
+                .stream()
+                .collect(groupingBy(ServiceId::klass, toList()));
         this.resolvedServices = new HashMap<>();
         this.stopActions = new ArrayList<>();
     }
@@ -42,19 +71,25 @@ public final class Container implements AutoCloseable {
         }
     }
 
-    public <T> T resolve(ServiceId serviceId) {
+    public Object resolveService(ServiceId serviceId) {
         ensureNotClosed();
 
         var result = resolvedServices.get(serviceId);
         if (result == null) {
             result = new ContainerDependencyResolver()
-                    .resolve(serviceId);
+                    .resolveService(serviceId);
         }
 
-        @SuppressWarnings("unchecked")
-        var castedResult = ((Class<T>) serviceId.klass()).cast(result);
+        return serviceId.klass().cast(result);
+    }
 
-        return castedResult;
+
+    public <T> T resolve(Class<T> klass) {
+        return klass.cast(resolveService(ServiceId.of(klass)));
+    }
+
+    public <T> T resolveNamed(Class<T> klass, String name) {
+        return klass.cast(resolveService(new ServiceId(klass, name)));
     }
 
     @Override
@@ -98,7 +133,7 @@ public final class Container implements AutoCloseable {
         log.info("Starting service {}...", serviceId);
 
         new ContainerDependencyResolver()
-                .resolve(serviceId.klass(), serviceId.name());
+                .resolveService(new ServiceId(serviceId.klass(), serviceId.name()));
 
         log.info("Service started");
     }
@@ -107,9 +142,7 @@ public final class Container implements AutoCloseable {
         private final Set<ServiceId> resolvingServices = new HashSet<>();
 
         @Override
-        public <T> T resolve(Class<T> klass, String name) {
-            var serviceId = new ServiceId(klass, name);
-
+        public Object resolveService(ServiceId serviceId) {
             log.info("Resolving service {}...", serviceId);
 
             if (resolvingServices.contains(serviceId)) {
@@ -132,13 +165,19 @@ public final class Container implements AutoCloseable {
 
                 log.info("Resolved {} to {}", serviceId, result);
 
-                @SuppressWarnings("unchecked")
-                var castedResult = ((Class<T>) serviceId.klass()).cast(result);
-
-                return castedResult;
+                return serviceId.klass().cast(result);
             } finally {
                 resolvingServices.remove(serviceId);
             }
+        }
+
+        @Override
+        public <T> List<T> resolveAll(Class<T> klass) {
+            return registeredTypes.getOrDefault(klass, emptyList())
+                    .stream()
+                    .map(this::resolveService)
+                    .map(klass::cast)
+                    .toList();
         }
 
         private Object createService(ServiceDef serviceDef) {

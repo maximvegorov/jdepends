@@ -5,6 +5,10 @@ import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 
+/**
+ * The Lifecycle class is responsible for managing and registering start and stop actions
+ * that can be executed during the lifecycle of a service.
+ */
 @RequiredArgsConstructor
 public final class Lifecycle {
     @NonNull

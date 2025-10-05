@@ -1,14 +1,20 @@
 package com.github.maximvegorov.jdepends;
 
-@FunctionalInterface
+import java.util.List;
+
+/**
+ * A interface that represents a mechanism for resolving dependencies.
+ */
 public interface DependencyResolver {
-    <T> T resolve(Class<T> klass, String name);
+    Object resolveService(ServiceId serviceId);
+
+    <T> List<T> resolveAll(Class<T> klass);
 
     default <T> T resolve(Class<T> klass) {
-        return resolve(klass, null);
+        return klass.cast(resolveService(ServiceId.of(klass)));
     }
 
-    default Object resolve(ServiceId serviceId) {
-        return resolve(serviceId.klass(), serviceId.name());
+   default  <T> T resolveNamed(Class<T> klass, String name) {
+        return klass.cast(resolveService(new ServiceId(klass, name)));
     }
 }

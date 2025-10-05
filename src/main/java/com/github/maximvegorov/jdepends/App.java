@@ -5,6 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * The {@code App} class serves as the main entry point and orchestrator for an application built on a service-oriented
+ * architecture. It manages the lifecycle of its components and the application state, providing mechanisms to
+ * start and stop services properly.
+ * This class utilizes a {@link Container} to manage and start the provided services and ensures proper cleanup
+ * during application shutdown through the use of a shutdown hook.
+ * It is designed to be used in a single-instance context and is thread-safe for managing its internal state.
+ */
 @Slf4j
 public final class App {
     private final Container container;
