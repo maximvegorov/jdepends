@@ -21,20 +21,18 @@ import static java.util.stream.Collectors.*;
  * This class implements {@link AutoCloseable} to provide a structured way of handling resources.
  * It guarantees that services are disposed properly when the container is no longer needed.
  * Construction of this class requires at least one {@link Provider} that supplies the service definitions.
- * Thread Safety:
- * - Calls to public methods must be avoided after the container is closed to ensure safety.
- * - Attempting to use services after closure results in {@link IllegalStateException}.
  * Error Handling:
+ * - Throws {@link IllegalArgumentException} if no providers are supplied during instantiation.
  * - Detects cyclic dependencies between services and throws {@link CyclicDependencyException}.
  * - Throws {@link FoundDuplicateException} for duplicate service registrations.
  * - Throws {@link UnknownServiceIdException} when resolving a non-existent service.
+ * - Attempting to use services after closure results in {@link IllegalStateException}.
  * Usage Guidelines:
  * - Always invoke {@link #close()} when the container is no longer needed to release resources.
  * - Ensure that all provided service configurations are unique and free from cyclic dependencies.
  * Construction Parameters:
  * - A varargs parameter of {@link Provider}, representing the service providers.
- * Exceptions:
- * - {@link IllegalArgumentException} if no providers are supplied during instantiation.
+ *  Not thread-safe.
  */
 @Slf4j
 public final class Container implements AutoCloseable {
@@ -71,27 +69,6 @@ public final class Container implements AutoCloseable {
         }
     }
 
-    public Object resolveService(ServiceId serviceId) {
-        ensureNotClosed();
-
-        var result = resolvedServices.get(serviceId);
-        if (result == null) {
-            result = new ContainerDependencyResolver()
-                    .resolveService(serviceId);
-        }
-
-        return serviceId.klass().cast(result);
-    }
-
-
-    public <T> T resolve(Class<T> klass) {
-        return klass.cast(resolveService(ServiceId.of(klass)));
-    }
-
-    public <T> T resolveNamed(Class<T> klass, String name) {
-        return klass.cast(resolveService(new ServiceId(klass, name)));
-    }
-
     @Override
     public void close() {
         if (closed) {
@@ -104,7 +81,7 @@ public final class Container implements AutoCloseable {
                 var stopAction = stopActions.get(i);
                 try {
                     stopAction.run();
-                } catch (Exception e) {
+                } catch (RuntimeException e) {
                     log.error("Unexpected error while calling stop action with index {}", i, e);
                 }
             }

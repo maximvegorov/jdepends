@@ -37,7 +37,7 @@ public final class Providers {
         if (!klass.isAssignableFrom(value.getClass())) {
             throw new IllegalArgumentException("%s incompatible with %s".formatted(value.getClass(), klass));
         }
-        var serviceId = ServiceId.of(value.getClass());
+        var serviceId = ServiceId.of(klass);
         var factory = (Factory) (resolver, lifecycle) -> value;
         return () -> List.of(new ServiceDef(serviceId, factory));
     }
