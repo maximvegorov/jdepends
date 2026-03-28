@@ -1,4 +1,4 @@
-package io.github.maximvegorov;
+package io.github.maximvegorov.jdepends;
 
 import lombok.NonNull;
 import lombok.experimental.UtilityClass;
