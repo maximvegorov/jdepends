@@ -1,4 +1,4 @@
-package com.github.maximvegorov.jdepends.exceptions;
+package io.github.maximvegorov.exceptions;
 
 public final class FoundDuplicateException extends RuntimeException {
     public FoundDuplicateException(String message) {
