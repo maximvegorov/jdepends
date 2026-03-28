@@ -1,4 +1,4 @@
-package io.github.maximvegorov.exceptions;
+package io.github.maximvegorov.jdepends.exceptions;
 
 public final class CyclicDependencyException extends RuntimeException {
     public CyclicDependencyException(String message) {

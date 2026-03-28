@@ -1,4 +1,4 @@
-package io.github.maximvegorov.exceptions;
+package io.github.maximvegorov.jdepends.exceptions;
 
 public final class UnknownServiceIdException extends RuntimeException {
     public UnknownServiceIdException(String message) {

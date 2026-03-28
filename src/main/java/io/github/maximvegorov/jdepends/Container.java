@@ -1,8 +1,8 @@
-package io.github.maximvegorov;
+package io.github.maximvegorov.jdepends;
 
-import io.github.maximvegorov.exceptions.CyclicDependencyException;
-import io.github.maximvegorov.exceptions.FoundDuplicateException;
-import io.github.maximvegorov.exceptions.UnknownServiceIdException;
+import io.github.maximvegorov.jdepends.exceptions.CyclicDependencyException;
+import io.github.maximvegorov.jdepends.exceptions.FoundDuplicateException;
+import io.github.maximvegorov.jdepends.exceptions.UnknownServiceIdException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.*;

@@ -1,4 +1,4 @@
-package io.github.maximvegorov;
+package io.github.maximvegorov.jdepends;
 
 /**
  * Represents a factory responsible for creating services based on the provided
