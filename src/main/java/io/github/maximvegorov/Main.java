@@ -1,4 +1,4 @@
-package com.github.maximvegorov.jdepends;
+package io.github.maximvegorov;
 
 import lombok.RequiredArgsConstructor;
 import lombok.ToString;

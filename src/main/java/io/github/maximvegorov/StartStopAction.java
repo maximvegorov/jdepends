@@ -1,4 +1,4 @@
-package com.github.maximvegorov.jdepends;
+package io.github.maximvegorov;
 
 /**
  * Encapsulates a pair of actions: a "start" action and a "stop" action.
