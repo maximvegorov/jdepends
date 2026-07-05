@@ -32,7 +32,6 @@ import static java.util.stream.Collectors.*;
  * - Ensure that all provided service configurations are unique and free from cyclic dependencies.
  * Construction Parameters:
  * - A varargs parameter of {@link Provider}, representing the service providers.
- *  Not thread-safe.
  */
 @Slf4j
 public final class Container implements AutoCloseable {
@@ -61,7 +60,7 @@ public final class Container implements AutoCloseable {
         this.stopActions = new ArrayList<>();
     }
 
-    public void start(ServiceId... serviceIds) {
+    public synchronized void start(ServiceId... serviceIds) {
         ensureNotClosed();
 
         for (var serviceId : serviceIds) {
@@ -69,8 +68,11 @@ public final class Container implements AutoCloseable {
         }
     }
 
+    /**
+     * Closing container. NoOp for all consecutive calls
+     */
     @Override
-    public void close() {
+    public synchronized void close() {
         if (closed) {
             return;
         }

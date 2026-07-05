@@ -3,6 +3,7 @@ package io.github.maximvegorov.jdepends;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -30,47 +31,67 @@ public final class App {
         if (!state.compareAndSet(State.NEW, State.STARTED)) {
             throw new IllegalStateException("Invalid state: " + state.get());
         }
+
         try {
-            var shutdownLock = new Object();
-
-            var hook = new Thread(() -> {
-                synchronized (shutdownLock) {
-                    state.compareAndSet(State.STARTED, State.STOPPING);
-                    shutdownLock.notifyAll();
-                }
-            }, "app-shutdown-hook");
-            Runtime.getRuntime().addShutdownHook(hook);
-
             log.info("Running app...");
-            try (container) {
+
+            try {
                 container.start(serviceIds);
+            } catch (RuntimeException e) {
+                log.error("Error while starting app", e);
+                state.set(State.STOPPING);
+                closeContainer(container);
+                return ExitStatus.ERROR;
+            }
 
-                log.info("App run");
+            log.info("App run");
 
-                synchronized (shutdownLock) {
-                    while (state.get() == State.STARTED) {
-                        shutdownLock.wait();
+            var shutdownLatch = new CountDownLatch(1);
+
+            var shutdownHook = new Thread(() -> {
+                if (state.compareAndSet(State.STARTED, State.STOPPING)) {
+                    try {
+                        closeContainer(container);
+                    } finally {
+                        shutdownLatch.countDown();
                     }
                 }
+            }, "app-shutdown-hook");
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
 
-                log.info("App shutdown");
+            awaitUninterruptibly(shutdownLatch);
 
-                return ExitStatus.SUCCESS;
-            } catch (Exception e) {
-                if (e instanceof InterruptedException) {
-                    Thread.currentThread().interrupt();
-                }
-                state.compareAndSet(State.STARTED, State.STOPPING);
-                log.error("Error while running app", e);
-                return ExitStatus.ERROR;
-            } finally {
+            log.info("App shutdown");
+
+            return ExitStatus.SUCCESS;
+        } finally {
+            state.set(State.STOPPED);
+        }
+    }
+
+    private static void closeContainer(Container container) {
+        try {
+            container.close();
+        } catch (RuntimeException e) {
+            log.warn("Error while closing container", e);
+        }
+    }
+
+    private static void awaitUninterruptibly(CountDownLatch latch) {
+        var interrupted = false;
+        try {
+            while (true) {
                 try {
-                    Runtime.getRuntime().removeShutdownHook(hook);
-                } catch (IllegalStateException ignored) {
+                    latch.await();
+                    return;
+                } catch (InterruptedException e) {
+                    interrupted = true; // проглатываем и продолжаем ждать: выход — только через хук
                 }
             }
         } finally {
-            state.set(State.STOPPED);
+            if (interrupted) {
+                Thread.currentThread().interrupt(); // восстанавливаем флаг на выходе
+            }
         }
     }
 
